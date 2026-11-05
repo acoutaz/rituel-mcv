@@ -612,7 +612,11 @@ async function renderEnseignant(){
   const picked = state.pickedSit;
   const url = (picked && publicUrl) ? `${publicUrl}?situation=${picked}` : null;
 
-  let html = `<h2 style="font-size:18px;">Adresse de cette page</h2>
+  let html = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;padding:14px;background:var(--paper);border:var(--bw) solid var(--ink);">
+    <a href="index.html?prof=ens7k2m9" style="flex:1;min-width:200px;text-align:center;padding:14px;background:var(--ink);color:#fff;text-decoration:none;font-family:var(--font-mono);font-size:14px;">① Rituels (suivi des élèves)</a>
+    <a href="#sit-zone" style="flex:1;min-width:200px;text-align:center;padding:14px;background:var(--accent);color:#fff;text-decoration:none;font-family:var(--font-mono);font-size:14px;">② Situations notées</a>
+  </div><span id="sit-zone"></span>
+    <h2 style="font-size:18px;">Adresse de cette page</h2>
     <p class="muted">Colle l'adresse publique de cette page (sans la partie « ?prof=… »).</p>
     <input type="text" id="publicurl-input" placeholder="${esc_(PUBLIC_URL_HINT)}" value="${esc_(publicUrl)}" />
     <button class="btn secondary" id="publicurl-save" style="margin-top:8px;">Enregistrer ce lien</button>

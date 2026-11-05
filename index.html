@@ -623,8 +623,12 @@ async function renderEnseignant(){
   const picked = state.teacherPickedTheme;
   const url = (picked && state.publicUrl) ? `${state.publicUrl}?theme=${picked}${state.teacherNoteMode?'&note=1':''}` : null;
 
-  // --- Lien public de cette page ---
-  let html = `<h2 style="font-size:18px;">Lien public de cette page</h2>
+  // --- Accès rapide : tout depuis un seul lien ---
+  let html = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;padding:14px;background:var(--paper);border:1.5px solid var(--ink);">
+    <a href="#rituels-zone" style="flex:1;min-width:200px;text-align:center;padding:14px;background:var(--ink);color:#fff;text-decoration:none;font-family:var(--font-mono);font-size:14px;">① Rituels (suivi des élèves)</a>
+    <a href="situations_seconde.html?prof=ens7k2m9" style="flex:1;min-width:200px;text-align:center;padding:14px;background:var(--gold);color:#fff;text-decoration:none;font-family:var(--font-mono);font-size:14px;">② Situations notées (QR, corrections, notes)</a>
+  </div><span id="rituels-zone"></span>`;
+  html += `<h2 style="font-size:18px;">Lien public de cette page</h2>
     <p class="muted">Colle ici l'adresse de ta page (GitHub Pages). C'est nécessaire pour que les QR codes générés ci-dessous pointent au bon endroit — sans cette étape, les élèves ne pourront pas ouvrir le lien.</p>
     <input type="text" id="publicurl-input" placeholder="https://tonpseudo.github.io/ton-depot/" value="${publicUrl}" />
     <button class="btn secondary" id="publicurl-save" style="margin-top:8px;">Enregistrer ce lien</button>
