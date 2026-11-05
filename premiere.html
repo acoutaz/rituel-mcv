@@ -9,6 +9,7 @@
 <div id="app"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
   :root{
     --ink:#263241; --paper:#EEF1F1; --paper-line:#D7DBDA;
     --gold:#C97A2B; --teal:#3E7355; --indigo:#3F5B73; --coral:#7A4B6D;
@@ -16,7 +17,6 @@
     --font-body:'IBM Plex Sans', Arial, sans-serif;
     --font-mono:'Space Mono', 'Courier New', monospace;
   }
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
   *{box-sizing:border-box;}
   #app{font-family:var(--font-body); color:var(--ink); background:var(--paper); min-height:100vh;}
   .wrap{max-width:680px;margin:0 auto;padding:28px 20px 60px;}
@@ -84,7 +84,10 @@ const THEMES = {
   efficacite: {domain:'anim', label:"Mesure de l'efficacité"}
 };
 const SESSION_LEN = 20;
-const TIME_PER_QUESTION = 30; // secondes
+const TIME_QCM = 60;   // secondes pour une question à choix
+const TIME_CALC = 150; // secondes pour une question de calcul
+const TIME_PER_QUESTION = TIME_QCM;
+function timeFor_(ex){ return (ex && ex.type==='num') ? TIME_CALC : TIME_QCM; }
 function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 function round2(n){return Math.round(n*100)/100;}
 
@@ -527,7 +530,7 @@ function renderEleve(){
   }
   const ex = state.currentExercise;
   const receipt = document.createElement('div'); receipt.className='receipt';
-  let inner = `<div class="progress">Question ${state.sessionIndex+1} / ${SESSION_LEN}${!state.answered?` · <span id="timer-display">⏱ ${state.timeLeft}s</span>`:''}</div>
+  let inner = `<div class="progress">Question ${state.sessionIndex+1} / ${SESSION_LEN}</div>
     <div class="tag" style="background:${dom.hex}">${th.label}</div>`;
   if(ex.diff) inner += `<div class="tag outline" style="color:${dom.hex}">${ex.diff}</div>`;
   inner += `<div class="qtext">${ex.q}</div>`;
@@ -550,20 +553,7 @@ function renderEleve(){
 function clearTimer_(){
   if(state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
 }
-function startTimer_(){
-  clearTimer_();
-  state.timeLeft = TIME_PER_QUESTION;
-  state.timedOut = false;
-  state.timerInterval = setInterval(()=>{
-    state.timeLeft--;
-    const el = document.getElementById('timer-display');
-    if(el) el.textContent = `⏱ ${state.timeLeft}s`;
-    if(state.timeLeft<=0){
-      clearTimer_();
-      handleTimeout_();
-    }
-  }, 1000);
-}
+function startTimer_(){ clearTimer_(); state.timedOut = false; } // pas de chronomètre
 async function handleTimeout_(){
   if(state.answered) return;
   const ex = state.currentExercise;
@@ -571,9 +561,9 @@ async function handleTimeout_(){
   state.lastCorrect = false;
   state.timedOut = true;
   const rec = {student:state.studentName, classe:state.sessionClasse, theme:ex.theme, correct:false, ts:Date.now()};
-  await saveRecord(rec);
   state.records.push(rec);
   render();
+  saveRecord(rec);
 }
 
 async function beginSession_(classe){
@@ -589,10 +579,11 @@ function attachEleveHandlers(){
   if(startBtn){
     startBtn.onclick = async ()=>{
       const val = document.getElementById('name-input').value.trim();
-      if(!val) return;
+      if(!val || startBtn.disabled) return;
+      startBtn.disabled = true; startBtn.textContent = 'Chargement… un instant';
       state.studentName = val;
       const rosters = await loadRosters();
-      const norm = s => s.trim().toLowerCase();
+      const norm = s => s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
       const matches = state.classNames.filter(cn => (rosters[cn]||[]).some(n => norm(n)===norm(val)));
       if(matches.length===1){
         await beginSession_(matches[0]);
@@ -609,6 +600,7 @@ function attachEleveHandlers(){
   const validateBtn = document.getElementById('validate-btn');
   if(validateBtn){
     validateBtn.onclick = async ()=>{
+      if(validateBtn.disabled) return;
       const ex = state.currentExercise;
       let correct=false;
       if(ex.type==='qcm'){ if(state.selectedChoice===null) return; correct = state.selectedChoice===ex.answer; }
@@ -617,9 +609,9 @@ function attachEleveHandlers(){
       state.answered=true; state.lastCorrect=correct; state.timedOut=false;
       if(correct) state.sessionCorrect++;
       const rec = {student:state.studentName, classe:state.sessionClasse, theme:ex.theme, correct, ts:Date.now()};
-      await saveRecord(rec);
       state.records.push(rec);
       render();
+      saveRecord(rec);
     };
   }
   const nextBtn = document.getElementById('next-btn');
@@ -804,6 +796,23 @@ async function renderEnseignant(){
     });
     html += `</div>`;
   }
+
+  // --- Notes des situations professionnelles (pages d'évaluation) ---
+  const SIT_LABELS = {stock_alerte_eau:"Stock de sécurité et d'alerte — Boissons", stock_mini_capsules:"Stock minimum et date de commande — Café", stock_maxi_the:"Stock maximum et stock moyen — Thés", stock_retard_peinture:"Retard fournisseur — Peinture", stock_synthese_the:"Synthèse — Fiche de stock"};
+  const sitSubs = (await kvGet('premiere:sit:submissions')) || [];
+  const noteOf = sub => { const tot = sub.answers.reduce((t,a)=>t+(a.max||1),0); const pts = sub.answers.reduce((t,a)=>t+(a.points||0),0); return Math.round((pts/tot)*5*2)/2; };
+  const fdate = ts => { const d=new Date(ts); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); };
+  const waiting = sitSubs.filter(x=>!x.graded).length;
+  html += `<hr style="margin:26px 0;border:none;border-top:1px solid var(--paper-line);"><h2 style="font-size:18px;">Notes des situations professionnelles</h2>
+    <p class="muted">Résultats des évaluations notées sur 5 (page « situations_premiere »). ${waiting?`<b style="color:var(--coral);">${waiting} copie(s) à corriger</b> — `:''}<a href="situations_premiere.html?prof=${TEACHER_KEY}" target="_blank">ouvrir la page de correction</a></p>`;
+  classNames.forEach(cn=>{
+    const subs = sitSubs.filter(x=>x.classe===cn).sort((a,b)=>b.ts-a.ts);
+    html += `<div style="font-family:var(--font-mono);font-size:13px;margin-top:14px;"><b>${cn}</b></div>`;
+    if(!subs.length){ html += `<p class="muted">Aucune copie.</p>`; return; }
+    html += `<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr><th align="left">Date</th><th align="left">Élève</th><th align="left">Situation</th><th align="left">Note</th></tr></thead><tbody>`;
+    subs.forEach(x=>{ html += `<tr><td>${fdate(x.ts)}</td><td><b>${String(x.student).replace(/</g,'&lt;')}</b></td><td>${SIT_LABELS[x.situationId]||x.situationId}</td><td>${x.graded?`<b>${noteOf(x)}/5</b>`:'<span class="muted">en attente</span>'}</td></tr>`; });
+    html += `</tbody></table>`;
+  });
 
   el.innerHTML = html;
 

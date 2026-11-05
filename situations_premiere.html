@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Évaluations — Première MCV</title>
+</head>
+<body style="margin:0;">
+<div id="app"></div>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+  :root{
+    --ink:#263241; --paper:#EEF1F1; --paper-line:#D7DBDA;
+    --accent:#7A4B6D; --accent2:#3E7355;
+    --font-display:'Space Grotesk', Arial, sans-serif;
+    --font-body:'IBM Plex Sans', Arial, sans-serif;
+    --font-mono:'Space Mono', 'Courier New', monospace;
+    --bw:2px; --rad:10px; --shadow:4px 4px 0 var(--ink);
+  }
+  *{box-sizing:border-box;}
+  #app{font-family:var(--font-body); color:var(--ink); background:var(--paper); min-height:100vh;}
+  .wrap{max-width:700px;margin:0 auto;padding:28px 20px 70px;}
+  h1,h2,h3{font-family:var(--font-display); margin:0 0 6px; font-weight:700;}
+  .eyebrow{font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; color:var(--accent2); margin-bottom:6px;}
+  .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:12px; flex-wrap:wrap;}
+  .toggle{display:flex; border:var(--bw) solid var(--ink); border-radius:var(--rad); overflow:hidden; font-family:var(--font-mono); font-size:12px;}
+  .toggle button{background:none; border:none; padding:7px 14px; cursor:pointer; color:var(--ink); font-family:inherit;}
+  .toggle button.active{background:var(--ink); color:var(--paper);}
+  .card{background:#fff; border:var(--bw) solid var(--ink); border-radius:var(--rad); padding:22px; margin-bottom:16px; box-shadow:var(--shadow);}
+  .context-card{background:#fff; border:var(--bw) solid var(--ink); border-left:8px solid var(--accent); border-radius:var(--rad); padding:20px 22px; margin-bottom:18px;}
+  .rappel{background:var(--paper); border:1.5px dashed var(--ink); border-radius:var(--rad); padding:10px 14px; margin-top:12px; font-size:14px; line-height:1.5;}
+  .qcard{background:#fff; border:var(--bw) solid var(--ink); border-radius:var(--rad); padding:18px 20px; margin-bottom:14px;}
+  .tag{display:inline-block; font-family:var(--font-mono); font-size:11px; letter-spacing:.06em; padding:4px 10px; border-radius:var(--rad); color:#fff; background:var(--accent); margin-bottom:10px; margin-right:6px;}
+  .qtext{font-size:16px; line-height:1.55; margin:4px 0 14px;}
+  .qnum{font-family:var(--font-mono); font-weight:700; color:var(--accent); margin-right:8px;}
+  input[type=text],input[type=number],select,textarea{width:100%; font-family:var(--font-body); font-size:16px; padding:10px 12px; border:var(--bw) solid var(--ink); border-radius:var(--rad); background:var(--paper); color:var(--ink);}
+  textarea{resize:vertical;}
+  .choices{display:flex; flex-direction:column; gap:8px;}
+  .choice{border:var(--bw) solid var(--ink); border-radius:var(--rad); padding:10px 14px; cursor:pointer; font-size:15px; background:#fff;}
+  .choice:hover{background:var(--paper);}
+  .choice.selected{background:var(--ink); color:#fff;}
+  .btn{font-family:var(--font-mono); font-size:13px; background:var(--accent); color:#fff; border:none; border-radius:var(--rad); padding:13px 24px; cursor:pointer; margin-top:16px;}
+  .btn:hover{opacity:.9;} .btn:disabled{opacity:.5;cursor:default;}
+  .btn.secondary{background:none; color:var(--ink); border:var(--bw) solid var(--ink);}
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:8px;}
+  th,td{padding:8px 10px; border-bottom:1px solid var(--paper-line); text-align:left; vertical-align:middle;}
+  th{font-family:var(--font-mono); font-size:11px; color:var(--accent2);}
+  .muted{color:#6c7380; font-size:13px; line-height:1.5;}
+  .themepick{display:flex; flex-wrap:wrap; gap:8px;}
+  .themebtn{border:var(--bw) solid var(--ink); border-radius:var(--rad); padding:8px 14px; cursor:pointer; background:#fff; font-size:13px;}
+  .themebtn.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  #qr-box{background:#fff; padding:12px; display:inline-block; border:var(--bw) solid var(--ink); margin-top:12px;}
+  .timerbar{position:sticky; top:0; z-index:5; background:var(--ink); color:#fff; font-family:var(--font-mono); font-size:15px; padding:10px 16px; margin:0 -20px 18px; display:flex; justify-content:space-between; align-items:center;}
+  .timerbar.low{background:#B3261E;}
+  .exp{background:var(--paper); border-left:4px solid var(--accent2); padding:8px 12px; font-size:13px; margin:6px 0;}
+  hr{margin:26px 0;border:none;border-top:1px solid var(--paper-line);}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ====================== CONFIGURATION ======================
+const TEACHER_KEY = "prem4f8h2";
+const PFX = "premiere:sit:";               // préfixe de stockage de ces évaluations
+const ROSTER_PFX = "premiere:";  // listes d'élèves et noms de classes partagés avec la page de rituels
+const DEFAULT_CLASSES = ["1COM1", "1COM2"];
+const TIME_LIMIT_SEC = 0;  // 0 = pas de limite de temps
+const LEVEL_LABEL = "Première";
+const PUBLIC_URL_HINT = "https://tonpseudo.github.io/ton-depot/situations_premiere.html";
+const API_URL = "https://script.google.com/macros/s/AKfycbyAeY-V3Si4xstpBh4iRiTMVJz7NzM9Isbp5GhLiYSj0KJwarUP5M6QT-uGyV5DTtVdow/exec";
+
+// ====================== SITUATIONS ======================
+const SITUATIONS = {
+ "stock_alerte_eau": {
+  "label": "Stock de sécurité et stock d'alerte — Rayon boissons",
+  "context": "Vous êtes en stage au rayon boissons d'un supermarché ouvert 7 jours sur 7. Le pack d'eau minérale 6 × 1,5 L se vend en moyenne à <b>30 packs par jour</b>. Le fournisseur livre <b>4 jours</b> après la commande (délai de réapprovisionnement). Votre responsable souhaite se protéger d'un retard ou d'un pic de ventes : le stock de sécurité doit couvrir <b>2 jours</b> de ventes.",
+  "rappel": "<b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité. <b>Stock d'alerte</b> = (consommation journalière × délai de réapprovisionnement) + stock de sécurité.",
+  "questions": [
+   {
+    "type": "num",
+    "prompt": "Quelle quantité de packs est vendue pendant le délai de réapprovisionnement ?",
+    "answer": 120,
+    "tol": 0.5,
+    "unit": "packs"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock de sécurité.",
+    "answer": 60,
+    "tol": 0.5,
+    "unit": "packs"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock d'alerte.",
+    "answer": 180,
+    "tol": 0.5,
+    "unit": "packs"
+   },
+   {
+    "type": "qcm",
+    "prompt": "Ce matin, le stock informatique indique 175 packs. Que devez-vous faire ?",
+    "choices": [
+     "Baisser le prix pour accélérer les ventes",
+     "Passer la commande, car le stock est passé sous le stock d'alerte (180)",
+     "Rien : le stock est encore important",
+     "Retourner des packs au fournisseur"
+    ],
+    "correct": 1
+   },
+   {
+    "type": "open",
+    "prompt": "Expliquez en deux ou trois phrases à quoi sert le stock de sécurité et ce qui peut arriver sans lui.",
+    "expected": "Sur 2 pts : 1 pt rôle (protège contre un retard de livraison ou une hausse imprévue des ventes) ; 1 pt conséquence sans stock de sécurité (rupture de stock, vente manquée, client mécontent).",
+    "max": 2
+   }
+  ]
+ },
+ "stock_mini_capsules": {
+  "label": "Stock minimum, stock d'alerte et date de commande — Capsules café",
+  "context": "Vous gérez le rayon café d'une grande surface. La boîte de 50 capsules se vend en moyenne à <b>25 boîtes par jour</b>. Le délai de réapprovisionnement est de <b>6 jours</b>. Le stock de sécurité est fixé à <b>3 jours de ventes</b>. Le stock minimum est égal au stock de sécurité. Le stock actuel est de <b>400 boîtes</b>.",
+  "rappel": "<b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité. <b>Stock d'alerte</b> = (consommation journalière × délai de réapprovisionnement) + stock de sécurité. Le <b>stock minimum</b> est égal au stock de sécurité.",
+  "questions": [
+   {
+    "type": "num",
+    "prompt": "Quel est le stock minimum de ce produit ?",
+    "answer": 75,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Quelle quantité est vendue pendant le délai de réapprovisionnement ?",
+    "answer": 150,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock d'alerte.",
+    "answer": 225,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Si les ventes restent régulières, dans combien de jours le stock actuel (400 boîtes) atteindra-t-il le stock d'alerte ?",
+    "answer": 7,
+    "tol": 0.1,
+    "unit": "jours"
+   },
+   {
+    "type": "qcm",
+    "prompt": "Si le fournisseur annonce que son délai de livraison passe de 6 à 8 jours, que devient le stock d'alerte ?",
+    "choices": [
+     "Il ne change pas",
+     "Il augmente (il faut commander plus tôt)",
+     "Il devient égal à zéro",
+     "Il diminue"
+    ],
+    "correct": 1
+   }
+  ]
+ },
+ "stock_maxi_the": {
+  "label": "Stock maximum et stock moyen — Rayon thés",
+  "context": "Un magasin de produits bio vend des boîtes de thé vert. Les ventes sont de <b>30 boîtes par jour</b>. Le délai de réapprovisionnement est de <b>5 jours</b> et le stock de sécurité couvre <b>3 jours</b> de ventes (le stock minimum est égal au stock de sécurité). Le magasin commande à chaque fois <b>300 boîtes</b> (quantité économique de commande).",
+  "rappel": "<b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité. <b>Stock d'alerte</b> = (consommation journalière × délai de réapprovisionnement) + stock de sécurité. Le <b>stock minimum</b> est égal au stock de sécurité. <b>Stock maximum</b> = stock minimum + quantité commandée. <b>Stock moyen</b> = (stock minimum + stock maximum) ÷ 2.",
+  "questions": [
+   {
+    "type": "num",
+    "prompt": "Calculez le stock de sécurité (stock minimum).",
+    "answer": 90,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock d'alerte.",
+    "answer": 240,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock maximum.",
+    "answer": 390,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock moyen.",
+    "answer": 240,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "qcm",
+    "prompt": "Un jour, le stock en rayon atteint 520 boîtes. Que peut-on dire ?",
+    "choices": [
+     "Le stock dépasse le stock maximum : il y a un surstock",
+     "Le stock est inférieur au stock minimum : risque de rupture",
+     "Le stock est idéal",
+     "Le stock est exactement le stock d'alerte"
+    ],
+    "correct": 0
+   },
+   {
+    "type": "open",
+    "prompt": "Citez deux conséquences négatives d'un surstock pour le magasin.",
+    "expected": "Sur 2 pts : 1 pt par conséquence valable (coûts de stockage, trésorerie immobilisée, péremption/démarque/obsolescence, place, vol/casse).",
+    "max": 2
+   }
+  ]
+ },
+ "stock_retard_peinture": {
+  "label": "Retard du fournisseur et rupture — Peinture en magasin de bricolage",
+  "context": "Vous travaillez dans un magasin de bricolage ouvert 24 jours par mois. Il se vend <b>1 200 pots de peinture blanche</b> sur un mois. Le délai de réapprovisionnement est de <b>6 jours ouvrés</b>. Le stock de sécurité correspond à <b>3 jours de ventes</b>. Chaque commande porte sur <b>600 pots</b>.",
+  "rappel": "<b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité. <b>Stock d'alerte</b> = (consommation journalière × délai de réapprovisionnement) + stock de sécurité. <b>Stock maximum</b> = stock minimum (= stock de sécurité) + quantité commandée.",
+  "questions": [
+   {
+    "type": "num",
+    "prompt": "Calculez la consommation moyenne par jour (en pots).",
+    "answer": 50,
+    "tol": 0.5,
+    "unit": "pots/jour"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock d'alerte.",
+    "answer": 450,
+    "tol": 0.5,
+    "unit": "pots"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock maximum.",
+    "answer": 750,
+    "tol": 0.5,
+    "unit": "pots"
+   },
+   {
+    "type": "num",
+    "prompt": "Le fournisseur livre avec 4 jours de retard. À l'heure où la commande aurait dû arriver, il ne reste que le stock de sécurité (150 pots). Pendant ces 4 jours de retard, combien de pots manqueront-ils (0 si le stock de sécurité suffit) ?",
+    "answer": 50,
+    "tol": 0.5,
+    "unit": "pots manquants"
+   },
+   {
+    "type": "open",
+    "prompt": "Que proposez-vous pour éviter une rupture lors de ces retards (2 actions possibles) ?",
+    "expected": "Sur 2 pts : 1 pt par action pertinente (augmenter le stock de sécurité, commander plus tôt / relever le stock d'alerte, second fournisseur, relancer le fournisseur, suivi plus fréquent).",
+    "max": 2
+   }
+  ]
+ },
+ "stock_synthese_the": {
+  "label": "Synthèse — Fiche de stock complète : sachets de tisane",
+  "context": "Vous devez compléter la fiche de gestion de stock d'une référence de tisane en sachets dans une épicerie fine. Données : ventes moyennes <b>18 boîtes par jour</b> ; délai de réapprovisionnement <b>10 jours</b> ; stock de sécurité = <b>5 jours</b> de ventes ; quantité commandée à chaque fois = <b>360 boîtes</b> ; le stock minimum est égal au stock de sécurité. Le stock actuel est de <b>300 boîtes</b>.",
+  "rappel": null,
+  "questions": [
+   {
+    "type": "num",
+    "prompt": "Calculez le stock de sécurité (= stock minimum).",
+    "answer": 90,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock d'alerte.",
+    "answer": 270,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock maximum.",
+    "answer": 450,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock moyen.",
+    "answer": 270,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "qcm",
+    "prompt": "Le stock actuel est de 300 boîtes. Faut-il commander aujourd'hui ?",
+    "choices": [
+     "Non, il faut attendre la rupture",
+     "Oui, car 300 est supérieur au stock moyen",
+     "Oui, car 300 est supérieur au stock de sécurité",
+     "Non, mais la commande sera à passer dès que le stock descendra à 270 boîtes (dans environ 2 jours)"
+    ],
+    "correct": 3
+   },
+   {
+    "type": "open",
+    "prompt": "Rédigez une courte recommandation (2 à 3 phrases) à votre responsable pour le suivi de ce produit : quand commander, combien, et pourquoi garder un stock de sécurité.",
+    "expected": "Sur 2 pts : 1 pt quand et combien commander (à 270 boîtes, par 360) ; 1 pt rôle du stock de sécurité de 90 boîtes (absorber retards et pics de ventes).",
+    "max": 2
+   }
+  ]
+ }
+};
+
+// ====================== BASE DE DONNÉES ======================
+async function kvGet(key){
+  try{ const res = await fetch(`${API_URL}?action=get&key=${encodeURIComponent(key)}`); const d = await res.json(); return d.value ? JSON.parse(d.value) : null; }catch(e){ return null; }
+}
+async function kvPost(body){
+  try{ await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(body) }); return true; }catch(e){ return false; }
+}
+const kvSet = (key, value) => kvPost({action:'set', key, value});
+const kvAppend = (key, value) => kvPost({action:'append', key, value});
+const kvUpdateItem = (key, matchField, matchValue, patch) => kvPost({action:'updateItem', key, matchField, matchValue, patch});
+
+const loadSubmissions = async () => (await kvGet(PFX+'submissions')) || [];
+const saveSubmission = sub => kvAppend(PFX+'submissions', sub);
+const updateSubmission = (id, patch) => kvUpdateItem(PFX+'submissions', 'id', id, patch);
+const loadClassNames = async () => { const v = await kvGet(ROSTER_PFX+'classnames'); return (v && v.length===2) ? v : DEFAULT_CLASSES; };
+const loadRosters = async () => (await kvGet(ROSTER_PFX+'rosters')) || {};
+const loadPublicUrl = async () => (await kvGet(PFX+'publicurl')) || '';
+const savePublicUrl = u => kvSet(PFX+'publicurl', u);
+
+function uid_(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function esc_(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function normName_(s){ return String(s).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); }
+function formatDateTime_(ts){ const d=new Date(ts); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' à '+String(d.getHours()).padStart(2,'0')+'h'+String(d.getMinutes()).padStart(2,'0'); }
+function fmtTime_(s){ return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+
+// ====================== ÉTAT ======================
+const params = new URLSearchParams(window.location.search);
+const isTeacher = params.get('prof') === TEACHER_KEY;
+let state = {
+  view: isTeacher ? 'enseignant' : 'eleve',
+  sit: params.get('situation') && SITUATIONS[params.get('situation')] ? params.get('situation') : null,
+  classNames: DEFAULT_CLASSES, publicUrl: '',
+  studentName: null, sessionClasse: null,
+  started: false, submitted: false, sending: false,
+  answers: {}, selectedChoices: {},
+  timeLeft: TIME_LIMIT_SEC, timerInterval: null,
+  pickedSit: null
+};
+
+// ====================== MINUTEUR ======================
+function clearTimer_(){ if(state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; } }
+function startTimer_(){
+  if(!TIME_LIMIT_SEC) return;
+  clearTimer_();
+  state.timeLeft = TIME_LIMIT_SEC;
+  state.timerInterval = setInterval(()=>{
+    state.timeLeft--;
+    const el = document.getElementById('timer-display');
+    const bar = document.getElementById('timerbar');
+    if(el) el.textContent = '⏱ ' + fmtTime_(Math.max(0,state.timeLeft));
+    if(bar && state.timeLeft<=60) bar.classList.add('low');
+    if(state.timeLeft<=0){ clearTimer_(); submit_(true); }
+  }, 1000);
+}
+
+// ====================== RENDU ======================
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.className = 'wrap';
+  if(state.view==='eleve' && state.started && !state.submitted && TIME_LIMIT_SEC){
+    wrap.innerHTML = `<div class="timerbar" id="timerbar"><span>Il te reste</span><span id="timer-display">⏱ ${fmtTime_(Math.max(0,state.timeLeft))}</span></div>`;
+  }
+  const top = document.createElement('div'); top.className = 'topbar';
+  top.innerHTML = `<div><div class="eyebrow">Évaluation · ${LEVEL_LABEL}</div><h1 style="font-size:22px;">Première MCV — Gestion des stocks</h1></div>`;
+  if(isTeacher){
+    const t = document.createElement('div'); t.className = 'toggle';
+    t.innerHTML = `<button id="btn-eleve" class="${state.view==='eleve'?'active':''}">Élève (aperçu)</button><button id="btn-ens" class="${state.view==='enseignant'?'active':''}">Enseignant</button>`;
+    top.appendChild(t);
+  }
+  wrap.appendChild(top);
+  if(state.view==='eleve') wrap.appendChild(renderEleve());
+  else { const ph = document.createElement('div'); ph.className='card'; ph.id='ens-container'; ph.innerHTML = '<p class="muted">Chargement…</p>'; wrap.appendChild(ph); }
+  app.appendChild(wrap);
+  if(isTeacher){
+    document.getElementById('btn-eleve').onclick = ()=>{ state.view='eleve'; render(); };
+    document.getElementById('btn-ens').onclick = ()=>{ clearTimer_(); state.view='enseignant'; render(); renderEnseignant(); };
+  }
+  attachEleveHandlers();
+}
+
+function renderEleve(){
+  const c = document.createElement('div');
+
+  if(!state.sit){
+    let html = `<div class="card"><h2 style="font-size:18px;">Aucune situation sélectionnée</h2>
+      <p class="muted">Ce lien ne précise pas la situation du jour. Scanne le QR code donné par ton enseignante.</p>`;
+    if(isTeacher){
+      html += `<div class="themepick" style="margin-top:12px;">`;
+      Object.entries(SITUATIONS).forEach(([k,s])=>{ html += `<div class="themebtn" data-k="${k}">${esc_(s.label)}</div>`; });
+      html += `</div>`;
+    }
+    html += `</div>`;
+    c.innerHTML = html;
+    return c;
+  }
+  const sit = SITUATIONS[state.sit];
+
+  if(!state.studentName){
+    c.innerHTML = `<div class="card">
+      <h2 style="font-size:18px;">Bonjour ! Comment t'appelles-tu ?</h2>
+      <p class="muted">Ton prénom permet à ton enseignante de retrouver ta copie. Cette évaluation est <b>notée sur 5</b>. ${TIME_LIMIT_SEC?`Tu disposeras de <b>${Math.round(TIME_LIMIT_SEC/60)} minutes</b> une fois commencée.`:`<b>Il n'y a pas de limite de temps</b> : prends le temps de bien lire et de poser tes calculs.`}</p>
+      <input type="text" id="name-input" placeholder="Ton prénom" autocomplete="off" />
+      <button class="btn" id="start-btn">Continuer</button>
+    </div>`;
+    return c;
+  }
+
+  if(!state.sessionClasse){
+    let html = `<div class="card"><h2 style="font-size:18px;">Dans quelle classe es-tu, ${esc_(state.studentName)} ?</h2>
+      <p class="muted">On n'a pas pu reconnaître ta classe automatiquement.</p><div class="themepick">`;
+    state.classNames.forEach(cn=>{ html += `<div class="themebtn" data-c="${esc_(cn)}">${esc_(cn)}</div>`; });
+    html += `</div></div>`;
+    c.innerHTML = html;
+    return c;
+  }
+
+  if(state.submitted){
+    c.innerHTML = `<div class="card"><h2 style="font-size:18px;">Copie envoyée !</h2>
+      <p>Merci ${esc_(state.studentName)}, ta copie « ${esc_(sit.label)} » a bien été transmise.</p>
+      <p class="muted">Ta note sera communiquée après correction.</p></div>`;
+    return c;
+  }
+
+  if(!state.started){
+    c.innerHTML = `<div class="card"><div class="tag">${esc_(sit.label)}</div>
+      <h2 style="font-size:18px;">${esc_(state.studentName)}, tu es prêt(e) ?</h2>
+      <p class="muted">${sit.questions.length} questions sur une situation professionnelle, notées sur 5. ${TIME_LIMIT_SEC?`Le chronomètre de <b>${Math.round(TIME_LIMIT_SEC/60)} minutes</b> démarre dès que tu appuies sur le bouton ; à la fin du temps, ta copie est envoyée automatiquement.`:`Tu n'as pas de limite de temps. Pense à bien relire avant d'envoyer.`}</p>
+      <button class="btn" id="go-btn">Commencer</button></div>`;
+    return c;
+  }
+
+  let html = `<div class="context-card"><div class="tag">${esc_(sit.label)}</div><p class="qtext" style="margin-bottom:0;">${sit.context}</p>
+    ${sit.rappel?`<div class="rappel"><b>Rappel :</b> ${sit.rappel}</div>`:''}</div>`;
+  sit.questions.forEach((q,i)=>{
+    html += `<div class="qcard"><div class="qtext"><span class="qnum">${i+1}.</span>${q.prompt}${q.type==='open'&&q.max>1?` <span class="muted">(sur ${q.max} points)</span>`:''}</div>`;
+    if(q.type==='qcm'){
+      html += `<div class="choices" data-qi="${i}">${q.choices.map((ch,ci)=>`<div class="choice ${state.selectedChoices[i]===ci?'selected':''}" data-qi="${i}" data-ci="${ci}">${ch}</div>`).join('')}</div>`;
+    } else if(q.type==='num'){
+      html += `<input type="number" step="any" inputmode="decimal" data-qi="${i}" class="num-input" placeholder="Ta réponse${q.unit?' ('+esc_(q.unit)+')':''}" value="${esc_(state.answers[i]||'')}" />`;
+    } else {
+      html += `<textarea data-qi="${i}" class="open-input" rows="4" placeholder="Rédige ta réponse">${esc_(state.answers[i]||'')}</textarea>`;
+    }
+    html += `</div>`;
+  });
+  html += `<button class="btn" id="submit-btn">Envoyer ma copie</button>`;
+  c.innerHTML = html;
+  return c;
+}
+
+function showMsg_(txt){
+  let m = document.getElementById('msg-box');
+  if(!m){ m = document.createElement('div'); m.id = 'msg-box'; m.style.cssText = 'margin-top:16px;padding:12px 14px;border:var(--bw) solid #B3261E;color:#B3261E;background:#fff;font-size:14px;border-radius:var(--rad);'; const b = document.getElementById('submit-btn'); if(b) b.parentNode.insertBefore(m, b); }
+  m.textContent = txt; m.scrollIntoView({block:'center'});
+}
+async function submit_(auto){
+  if(state.submitted || state.sending) return;
+  const sit = SITUATIONS[state.sit];
+  if(!auto){
+    const missing = sit.questions.filter((q,i)=> q.type==='qcm' ? state.selectedChoices[i]===undefined : !String(state.answers[i]||'').trim()).length;
+    if(missing>0 && !state.warned){
+      state.warned = true;
+      showMsg_(`Il reste ${missing} question(s) sans réponse. Complète-les, ou appuie à nouveau sur « Envoyer ma copie » pour envoyer quand même.`);
+      return;
+    }
+  }
+  state.sending = true; clearTimer_();
+  const btn = document.getElementById('submit-btn'); if(btn){ btn.disabled = true; btn.textContent = 'Envoi en cours…'; }
+  const answers = sit.questions.map((q,i)=>{
+    if(q.type==='qcm'){
+      const ch = state.selectedChoices[i]; const ok = ch===q.correct;
+      return {qIndex:i, type:'qcm', max:1, studentAnswer: ch!==undefined ? q.choices[ch] : '', points: ok?1:0};
+    }
+    if(q.type==='num'){
+      const raw = String(state.answers[i]||'').replace(',','.'); const v = parseFloat(raw);
+      const ok = !isNaN(v) && Math.abs(v-q.answer)<=q.tol;
+      return {qIndex:i, type:'num', max:1, studentAnswer: raw, points: ok?1:0};
+    }
+    const txt = String(state.answers[i]||'').trim();
+    return {qIndex:i, type:'open', max:q.max||1, studentAnswer: txt, points: txt ? null : 0};
+  });
+  const sub = { id: uid_(), student: state.studentName, classe: state.sessionClasse, situationId: state.sit, ts: Date.now(),
+    auto: !!auto, answers, graded: answers.every(a=>a.points!==null) };
+  const ok = await saveSubmission(sub);
+  state.sending = false;
+  if(!ok){ state.sending = false; if(btn){ btn.disabled = false; btn.textContent = 'Envoyer ma copie'; } showMsg_("L'envoi a échoué (connexion). Vérifie ta connexion puis appuie de nouveau sur « Envoyer ma copie »."); return; }
+  state.submitted = true;
+  render();
+}
+
+async function beginSession_(classe){ state.sessionClasse = classe; render(); }
+
+function attachEleveHandlers(){
+  const startBtn = document.getElementById('start-btn');
+  if(startBtn){
+    const go = async ()=>{
+      const val = document.getElementById('name-input').value.trim();
+      if(!val || startBtn.disabled) return;
+      startBtn.disabled = true; startBtn.textContent = 'Chargement… un instant';
+      state.studentName = val;
+      const rosters = await loadRosters();
+      const matches = state.classNames.filter(cn => (rosters[cn]||[]).some(n => normName_(n)===normName_(val)));
+      if(matches.length===1) state.sessionClasse = matches[0];
+      render();
+    };
+    startBtn.onclick = go;
+    const ni = document.getElementById('name-input'); if(ni) ni.onkeydown = e=>{ if(e.key==='Enter') go(); };
+  }
+  document.querySelectorAll('.themebtn[data-c]').forEach(el=>{ el.onclick = ()=>beginSession_(el.dataset.c); });
+  document.querySelectorAll('.themebtn[data-k]').forEach(el=>{ el.onclick = ()=>{ state.sit = el.dataset.k; render(); }; });
+  const goBtn = document.getElementById('go-btn');
+  if(goBtn) goBtn.onclick = ()=>{ state.started = true; state.timeLeft = TIME_LIMIT_SEC; render(); startTimer_(); window.scrollTo(0,0); };
+  document.querySelectorAll('.choice[data-qi]').forEach(el=>{
+    el.onclick = ()=>{
+      state.selectedChoices[el.dataset.qi] = parseInt(el.dataset.ci);
+      el.parentElement.querySelectorAll('.choice').forEach(x=>x.classList.remove('selected'));
+      el.classList.add('selected');
+    };
+  });
+  document.querySelectorAll('.num-input, .open-input').forEach(el=>{ el.oninput = e=>{ state.answers[el.dataset.qi] = e.target.value; }; });
+  const submitBtn = document.getElementById('submit-btn');
+  if(submitBtn) submitBtn.onclick = ()=>submit_(false);
+}
+
+// ====================== ENSEIGNANT ======================
+function computeNote_(sub){
+  const total = sub.answers.reduce((s,a)=> s + (a.max||1), 0);
+  const pts = sub.answers.reduce((s,a)=> s + (a.points||0), 0);
+  return Math.round((pts/total)*5*2)/2;
+}
+
+async function renderEnseignant(){
+  const el = document.getElementById('ens-container'); if(!el) return;
+  const [submissions, classNames, publicUrl, rosters] = await Promise.all([loadSubmissions(), loadClassNames(), loadPublicUrl(), loadRosters()]);
+  state.classNames = classNames; state.publicUrl = publicUrl;
+  const picked = state.pickedSit;
+  const url = (picked && publicUrl) ? `${publicUrl}?situation=${picked}` : null;
+
+  let html = `<h2 style="font-size:18px;">Adresse de cette page</h2>
+    <p class="muted">Colle l'adresse publique de cette page (sans la partie « ?prof=… »).</p>
+    <input type="text" id="publicurl-input" placeholder="${esc_(PUBLIC_URL_HINT)}" value="${esc_(publicUrl)}" />
+    <button class="btn secondary" id="publicurl-save" style="margin-top:8px;">Enregistrer ce lien</button>
+    ${publicUrl?`<p class="muted" style="margin-top:8px;color:var(--accent2);">✓ Lien enregistré.</p>`:`<p class="muted" style="margin-top:8px;color:#B3261E;">⚠ Aucun lien enregistré — les QR ne fonctionneront pas.</p>`}`;
+
+  html += `<hr><h2 style="font-size:18px;">Classes et élèves</h2>
+    <p class="muted">Les classes (${classNames.map(esc_).join(' et ')}) et les listes d'élèves sont les mêmes que dans la page des rituels de ce niveau : elles se modifient là-bas (onglet Enseignant). ${(rosters[classNames[0]]||[]).length + (rosters[classNames[1]]||[]).length} élève(s) inscrit(s) au total.</p>`;
+
+  html += `<hr><h2 style="font-size:18px;">Situation du jour</h2>
+    <p class="muted">Choisis la situation : un lien et un QR code uniques sont générés, valables pour les deux classes.</p><div class="themepick">`;
+  Object.entries(SITUATIONS).forEach(([k,s])=>{ html += `<div class="themebtn ${picked===k?'active':''}" data-pk="${k}">${esc_(s.label)}</div>`; });
+  html += `</div>`;
+  if(picked && !publicUrl) html += `<p class="muted" style="color:#B3261E;margin-top:10px;">⚠ Renseigne d'abord l'adresse de la page ci-dessus.</p>`;
+  if(picked && url) html += `<p class="muted" style="margin-top:12px;">Lien de la séance :<br><span style="font-family:var(--font-mono);font-size:12px;word-break:break-all;">${esc_(url)}</span></p><div id="qr-box"></div>`;
+
+  const pending = submissions.filter(s=>!s.graded).sort((a,b)=>a.ts-b.ts);
+  html += `<hr><h2 style="font-size:18px;">Corrections à faire (${pending.length})</h2>`;
+  if(!pending.length) html += `<p class="muted">Rien à corriger pour l'instant.</p>`;
+  pending.forEach(sub=>{
+    const sit = SITUATIONS[sub.situationId]; if(!sit) return;
+    html += `<div class="card" style="box-shadow:none;"><b>${esc_(sub.student)}</b> <span class="muted">(${esc_(sub.classe)} · ${esc_(sit.label)})</span><br><span class="muted" style="font-family:var(--font-mono);font-size:11px;">Envoyé le ${formatDateTime_(sub.ts)}${sub.auto?' · envoi automatique (temps écoulé)':''}</span>`;
+    sub.answers.forEach((a,i)=>{
+      if(a.type==='open' && a.points===null){
+        html += `<div style="margin-top:12px;"><div class="muted">${sit.questions[i].prompt}</div>
+          <div class="exp"><b>Attendu :</b> ${sit.questions[i].expected||''}</div>
+          <div style="padding:8px 10px;background:var(--paper);margin:6px 0;font-size:14px;white-space:pre-wrap;">${esc_(a.studentAnswer)}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">${Array.from({length:Math.round((a.max||1)*2)+1},(_,n)=>n/2).map(p=>`<button class="btn secondary grade-btn" data-sub="${sub.id}" data-qi="${i}" data-pts="${p}" style="margin-top:0;padding:6px 14px;">${p}</button>`).join('')}<span class="muted" style="align-self:center;">/ ${a.max||1} pt</span></div></div>`;
+      }
+    });
+    html += `</div>`;
+  });
+
+  html += `<hr><h2 style="font-size:18px;">Notes</h2>`;
+  if(!submissions.length) html += `<p class="muted">Aucune copie reçue pour le moment.</p>`;
+  else {
+    // moyennes par situation et par classe (copies corrigées)
+    html += `<p class="muted">Moyennes (copies corrigées uniquement) :</p><table><thead><tr><th>Situation</th>${classNames.map(cn=>`<th>${esc_(cn)}</th>`).join('')}</tr></thead><tbody>`;
+    Object.entries(SITUATIONS).forEach(([k,s])=>{
+      const cells = classNames.map(cn=>{
+        const g = submissions.filter(x=>x.situationId===k && x.classe===cn && x.graded);
+        return g.length ? `<b>${(Math.round(g.reduce((t,x)=>t+computeNote_(x),0)/g.length*10)/10).toFixed(1)}/5</b> <span class="muted">(${g.length})</span>` : '<span class="muted">—</span>';
+      });
+      if(submissions.some(x=>x.situationId===k)) html += `<tr><td>${esc_(s.label)}</td>${cells.map(c=>`<td>${c}</td>`).join('')}</tr>`;
+    });
+    html += `</tbody></table>`;
+    classNames.forEach(cn=>{
+      const subs = submissions.filter(s=>s.classe===cn).sort((a,b)=>b.ts-a.ts);
+      html += `<div style="font-family:var(--font-mono);font-size:13px;margin-top:18px;color:var(--accent2);"><b>${esc_(cn)}</b></div>`;
+      if(!subs.length) html += `<p class="muted">Aucune copie.</p>`;
+      else {
+        html += `<table><thead><tr><th>Date</th><th>Élève</th><th>Situation</th><th>Statut</th><th>Note</th></tr></thead><tbody>`;
+        subs.forEach(s=>{ const sit = SITUATIONS[s.situationId];
+          html += `<tr><td>${formatDateTime_(s.ts)}</td><td><b>${esc_(s.student)}</b></td><td>${esc_(sit?sit.label:s.situationId)}</td><td>${s.graded?'Corrigée':'En attente'}</td><td><b>${computeNote_(s)}/5</b></td></tr>`; });
+        html += `</tbody></table>`;
+      }
+    });
+  }
+  el.innerHTML = html;
+
+  document.querySelectorAll('[data-pk]').forEach(b=>{ b.onclick = ()=>{ state.pickedSit = b.dataset.pk; renderEnseignant(); }; });
+  const ps = document.getElementById('publicurl-save');
+  if(ps) ps.onclick = async ()=>{ const v = document.getElementById('publicurl-input').value.trim().split('?')[0].replace(/\/$/,''); await savePublicUrl(v); renderEnseignant(); };
+  document.querySelectorAll('.grade-btn').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const y = window.scrollY;
+      document.querySelectorAll('.grade-btn').forEach(b=>b.disabled = true);
+      const sub = submissions.find(s=>s.id===btn.dataset.sub); const qi = parseInt(btn.dataset.qi);
+      const newAnswers = sub.answers.map((a,i)=> i===qi ? {...a, points: parseFloat(btn.dataset.pts)} : a);
+      await updateSubmission(sub.id, {answers:newAnswers, graded:newAnswers.every(a=>a.points!==null)});
+      await renderEnseignant(); window.scrollTo(0,y);
+    };
+  });
+  if(picked && url){ const qb = document.getElementById('qr-box'); if(qb && window.QRCode){ qb.innerHTML=''; new QRCode(qb,{text:url,width:170,height:170}); } }
+}
+
+(async function init(){
+  render();
+  state.classNames = await loadClassNames();
+  if(isTeacher) renderEnseignant();
+})();
+</script>
+</body>
+</html>
