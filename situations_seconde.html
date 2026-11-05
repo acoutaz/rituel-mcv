@@ -524,12 +524,21 @@ function renderEleve(){
   return c;
 }
 
+function showMsg_(txt){
+  let m = document.getElementById('msg-box');
+  if(!m){ m = document.createElement('div'); m.id = 'msg-box'; m.style.cssText = 'margin-top:16px;padding:12px 14px;border:var(--bw) solid #B3261E;color:#B3261E;background:#fff;font-size:14px;border-radius:var(--rad);'; const b = document.getElementById('submit-btn'); if(b) b.parentNode.insertBefore(m, b); }
+  m.textContent = txt; m.scrollIntoView({block:'center'});
+}
 async function submit_(auto){
   if(state.submitted || state.sending) return;
   const sit = SITUATIONS[state.sit];
   if(!auto){
     const missing = sit.questions.filter((q,i)=> q.type==='qcm' ? state.selectedChoices[i]===undefined : !String(state.answers[i]||'').trim()).length;
-    if(missing>0 && !confirm(`Il reste ${missing} question(s) sans réponse. Envoyer quand même ?`)) return;
+    if(missing>0 && !state.warned){
+      state.warned = true;
+      showMsg_(`Il reste ${missing} question(s) sans réponse. Complète-les, ou appuie à nouveau sur « Envoyer ma copie » pour envoyer quand même.`);
+      return;
+    }
   }
   state.sending = true; clearTimer_();
   const btn = document.getElementById('submit-btn'); if(btn){ btn.disabled = true; btn.textContent = 'Envoi en cours…'; }
@@ -550,7 +559,7 @@ async function submit_(auto){
     auto: !!auto, answers, graded: answers.every(a=>a.points!==null) };
   const ok = await saveSubmission(sub);
   state.sending = false;
-  if(!ok){ alert("L'envoi a échoué (connexion). Vérifie ta connexion et appuie de nouveau sur « Envoyer ma copie »."); render(); return; }
+  if(!ok){ state.sending = false; if(btn){ btn.disabled = false; btn.textContent = 'Envoyer ma copie'; } showMsg_("L'envoi a échoué (connexion). Vérifie ta connexion puis appuie de nouveau sur « Envoyer ma copie »."); return; }
   state.submitted = true;
   render();
 }
