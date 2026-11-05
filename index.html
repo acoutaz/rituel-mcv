@@ -9,6 +9,7 @@
 <div id="app"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
   :root{
     --ink:#1C2541; --paper:#F5F3EC; --paper-line:#E4E0D3;
     --gold:#C9973D; --teal:#2E8B79; --indigo:#4A5B8C; --coral:#C1533B;
@@ -16,7 +17,6 @@
     --font-body:'Work Sans', Arial, sans-serif;
     --font-mono:'IBM Plex Mono', 'Courier New', monospace;
   }
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
   *{box-sizing:border-box;}
   #app{font-family:var(--font-body); color:var(--ink); background:var(--paper); min-height:100vh;}
   .wrap{max-width:680px;margin:0 auto;padding:28px 20px 60px;}
@@ -506,7 +506,7 @@ function renderEleve(){
   }
   const ex = state.currentExercise;
   const receipt = document.createElement('div'); receipt.className='receipt';
-  let inner = `<div class="progress">Question ${state.sessionIndex+1} / ${SESSION_LEN}${!state.answered?` · <span id="timer-display">⏱ ${state.timeLeft}s</span>`:''}</div>
+  let inner = `<div class="progress">Question ${state.sessionIndex+1} / ${SESSION_LEN}</div>
     <div class="tag" style="background:${dom.hex}">${th.label}</div>`;
   if(ex.diff) inner += `<div class="tag outline" style="color:${dom.hex}">${ex.diff}</div>`;
   inner += `<div class="qtext">${ex.q}</div>`;
@@ -529,20 +529,7 @@ function renderEleve(){
 function clearTimer_(){
   if(state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
 }
-function startTimer_(){
-  clearTimer_();
-  state.timeLeft = TIME_PER_QUESTION;
-  state.timedOut = false;
-  state.timerInterval = setInterval(()=>{
-    state.timeLeft--;
-    const el = document.getElementById('timer-display');
-    if(el) el.textContent = `⏱ ${state.timeLeft}s`;
-    if(state.timeLeft<=0){
-      clearTimer_();
-      handleTimeout_();
-    }
-  }, 1000);
-}
+function startTimer_(){ clearTimer_(); state.timedOut = false; } // pas de chronomètre
 async function handleTimeout_(){
   if(state.answered) return;
   const ex = state.currentExercise;
@@ -550,9 +537,9 @@ async function handleTimeout_(){
   state.lastCorrect = false;
   state.timedOut = true;
   const rec = {student:state.studentName, classe:state.sessionClasse, theme:ex.theme, correct:false, ts:Date.now()};
-  await saveRecord(rec);
   state.records.push(rec);
   render();
+  saveRecord(rec);
 }
 
 async function beginSession_(classe){
@@ -568,10 +555,11 @@ function attachEleveHandlers(){
   if(startBtn){
     startBtn.onclick = async ()=>{
       const val = document.getElementById('name-input').value.trim();
-      if(!val) return;
+      if(!val || startBtn.disabled) return;
+      startBtn.disabled = true; startBtn.textContent = 'Chargement… un instant';
       state.studentName = val;
       const rosters = await loadRosters();
-      const norm = s => s.trim().toLowerCase();
+      const norm = s => s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
       const matches = state.classNames.filter(cn => (rosters[cn]||[]).some(n => norm(n)===norm(val)));
       if(matches.length===1){
         await beginSession_(matches[0]);
@@ -588,6 +576,7 @@ function attachEleveHandlers(){
   const validateBtn = document.getElementById('validate-btn');
   if(validateBtn){
     validateBtn.onclick = async ()=>{
+      if(validateBtn.disabled) return;
       const ex = state.currentExercise;
       let correct=false;
       if(ex.type==='qcm'){ if(state.selectedChoice===null) return; correct = state.selectedChoice===ex.answer; }
@@ -596,9 +585,9 @@ function attachEleveHandlers(){
       state.answered=true; state.lastCorrect=correct; state.timedOut=false;
       if(correct) state.sessionCorrect++;
       const rec = {student:state.studentName, classe:state.sessionClasse, theme:ex.theme, correct, ts:Date.now()};
-      await saveRecord(rec);
       state.records.push(rec);
       render();
+      saveRecord(rec);
     };
   }
   const nextBtn = document.getElementById('next-btn');
@@ -783,6 +772,23 @@ async function renderEnseignant(){
     });
     html += `</div>`;
   }
+
+  // --- Notes des situations professionnelles (pages d'évaluation) ---
+  const SIT_LABELS = {sbam_accueil:"SBAM — Accueil", regle_4x20:"Règle des 4x20", qqoqcp_besoin:"QQOQCP — Découverte du besoin", soncas_motivations:"SONCAS — Motivations", aida_vente:"AIDA — Démarche de vente", cap_argumentaire:"CAP — Argumentaire", synthese_vente:"Synthèse — Vente complète"};
+  const sitSubs = (await kvGet('rituels:sit:submissions')) || [];
+  const noteOf = sub => { const tot = sub.answers.reduce((t,a)=>t+(a.max||1),0); const pts = sub.answers.reduce((t,a)=>t+(a.points||0),0); return Math.round((pts/tot)*5*2)/2; };
+  const fdate = ts => { const d=new Date(ts); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); };
+  const waiting = sitSubs.filter(x=>!x.graded).length;
+  html += `<hr style="margin:26px 0;border:none;border-top:1px solid var(--paper-line);"><h2 style="font-size:18px;">Notes des situations professionnelles</h2>
+    <p class="muted">Résultats des évaluations notées sur 5 (page « situations_seconde »). ${waiting?`<b style="color:var(--coral);">${waiting} copie(s) à corriger</b> — `:''}<a href="situations_seconde.html?prof=${TEACHER_KEY}" target="_blank">ouvrir la page de correction</a></p>`;
+  classNames.forEach(cn=>{
+    const subs = sitSubs.filter(x=>x.classe===cn).sort((a,b)=>b.ts-a.ts);
+    html += `<div style="font-family:var(--font-mono);font-size:13px;margin-top:14px;"><b>${cn}</b></div>`;
+    if(!subs.length){ html += `<p class="muted">Aucune copie.</p>`; return; }
+    html += `<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr><th align="left">Date</th><th align="left">Élève</th><th align="left">Situation</th><th align="left">Note</th></tr></thead><tbody>`;
+    subs.forEach(x=>{ html += `<tr><td>${fdate(x.ts)}</td><td><b>${String(x.student).replace(/</g,'&lt;')}</b></td><td>${SIT_LABELS[x.situationId]||x.situationId}</td><td>${x.graded?`<b>${noteOf(x)}/5</b>`:'<span class="muted">en attente</span>'}</td></tr>`; });
+    html += `</tbody></table>`;
+  });
 
   el.innerHTML = html;
 
