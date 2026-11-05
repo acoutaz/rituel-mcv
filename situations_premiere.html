@@ -70,13 +70,13 @@ const API_URL = "https://script.google.com/macros/s/AKfycbyAeY-V3Si4xstpBh4iRiTM
 // ====================== SITUATIONS ======================
 const SITUATIONS = {
  "stock_alerte_eau": {
-  "label": "Stock de sécurité et stock d'alerte — Rayon boissons",
+  "label": "Stock minimum, de sécurité et d'alerte — Rayon boissons",
   "context": "Vous êtes en stage au rayon boissons d'un supermarché ouvert 7 jours sur 7. Le pack d'eau minérale 6 × 1,5 L se vend en moyenne à <b>30 packs par jour</b>. Le fournisseur livre <b>4 jours</b> après la commande (délai de réapprovisionnement). Votre responsable souhaite se protéger d'un retard ou d'un pic de ventes : le stock de sécurité doit couvrir <b>2 jours</b> de ventes.",
-  "rappel": "<b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité. <b>Stock d'alerte</b> = (consommation journalière × délai de réapprovisionnement) + stock de sécurité.",
+  "rappel": "<b>Stock minimum</b> = consommation journalière × délai de réapprovisionnement (il couvre les ventes jusqu'à la livraison). <b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité (il s'ajoute au stock minimum). <b>Stock d'alerte</b> = stock minimum + stock de sécurité.",
   "questions": [
    {
     "type": "num",
-    "prompt": "Quelle quantité de packs est vendue pendant le délai de réapprovisionnement ?",
+    "prompt": "Calculez le stock minimum.",
     "answer": 120,
     "tol": 0.5,
     "unit": "packs"
@@ -115,21 +115,21 @@ const SITUATIONS = {
   ]
  },
  "stock_mini_capsules": {
-  "label": "Stock minimum, stock d'alerte et date de commande — Capsules café",
-  "context": "Vous gérez le rayon café d'une grande surface. La boîte de 50 capsules se vend en moyenne à <b>25 boîtes par jour</b>. Le délai de réapprovisionnement est de <b>6 jours</b>. Le stock de sécurité est fixé à <b>3 jours de ventes</b>. Le stock minimum est égal au stock de sécurité. Le stock actuel est de <b>400 boîtes</b>.",
-  "rappel": "<b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité. <b>Stock d'alerte</b> = (consommation journalière × délai de réapprovisionnement) + stock de sécurité. Le <b>stock minimum</b> est égal au stock de sécurité.",
+  "label": "Stock d'alerte et date de commande — Capsules café",
+  "context": "Vous gérez le rayon café d'une grande surface. La boîte de 50 capsules se vend en moyenne à <b>25 boîtes par jour</b>. Le délai de réapprovisionnement est de <b>6 jours</b>. Le stock de sécurité est fixé à <b>3 jours de ventes</b>. Le stock actuel est de <b>400 boîtes</b>.",
+  "rappel": "<b>Stock minimum</b> = consommation journalière × délai de réapprovisionnement (il couvre les ventes jusqu'à la livraison). <b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité (il s'ajoute au stock minimum). <b>Stock d'alerte</b> = stock minimum + stock de sécurité.",
   "questions": [
    {
     "type": "num",
-    "prompt": "Quel est le stock minimum de ce produit ?",
-    "answer": 75,
+    "prompt": "Calculez le stock minimum.",
+    "answer": 150,
     "tol": 0.5,
     "unit": "boîtes"
    },
    {
     "type": "num",
-    "prompt": "Quelle quantité est vendue pendant le délai de réapprovisionnement ?",
-    "answer": 150,
+    "prompt": "Calculez le stock de sécurité.",
+    "answer": 75,
     "tol": 0.5,
     "unit": "boîtes"
    },
@@ -157,17 +157,30 @@ const SITUATIONS = {
      "Il diminue"
     ],
     "correct": 1
+   },
+   {
+    "type": "open",
+    "prompt": "Expliquez en deux phrases pourquoi on passe commande quand le stock atteint le stock d'alerte, et non quand il est à zéro.",
+    "expected": "Sur 2 pts : 1 pt idée de délai de livraison (le temps que la commande arrive) ; 1 pt éviter la rupture / garder le stock de sécurité en cas de retard.",
+    "max": 2
    }
   ]
  },
  "stock_maxi_the": {
-  "label": "Stock maximum et stock moyen — Rayon thés",
-  "context": "Un magasin de produits bio vend des boîtes de thé vert. Les ventes sont de <b>30 boîtes par jour</b>. Le délai de réapprovisionnement est de <b>5 jours</b> et le stock de sécurité couvre <b>3 jours</b> de ventes (le stock minimum est égal au stock de sécurité). Le magasin commande à chaque fois <b>300 boîtes</b> (quantité économique de commande).",
-  "rappel": "<b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité. <b>Stock d'alerte</b> = (consommation journalière × délai de réapprovisionnement) + stock de sécurité. Le <b>stock minimum</b> est égal au stock de sécurité. <b>Stock maximum</b> = stock minimum + quantité commandée. <b>Stock moyen</b> = (stock minimum + stock maximum) ÷ 2.",
+  "label": "Stock maximum et surstock — Rayon thés",
+  "context": "Un magasin de produits bio vend des boîtes de thé vert. Les ventes sont de <b>30 boîtes par jour</b>. Le délai de réapprovisionnement est de <b>5 jours</b> et le stock de sécurité couvre <b>3 jours</b> de ventes. Le magasin souhaite que le <b>stock maximum couvre 13 jours de ventes</b>.",
+  "rappel": "<b>Stock minimum</b> = consommation journalière × délai de réapprovisionnement (il couvre les ventes jusqu'à la livraison). <b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité (il s'ajoute au stock minimum). <b>Stock d'alerte</b> = stock minimum + stock de sécurité. <b>Stock maximum</b> = consommation journalière × nombre de jours de ventes qu'il doit couvrir.",
   "questions": [
    {
     "type": "num",
-    "prompt": "Calculez le stock de sécurité (stock minimum).",
+    "prompt": "Calculez le stock minimum.",
+    "answer": 150,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock de sécurité.",
     "answer": 90,
     "tol": 0.5,
     "unit": "boîtes"
@@ -183,13 +196,6 @@ const SITUATIONS = {
     "type": "num",
     "prompt": "Calculez le stock maximum.",
     "answer": 390,
-    "tol": 0.5,
-    "unit": "boîtes"
-   },
-   {
-    "type": "num",
-    "prompt": "Calculez le stock moyen.",
-    "answer": 240,
     "tol": 0.5,
     "unit": "boîtes"
    },
@@ -214,8 +220,8 @@ const SITUATIONS = {
  },
  "stock_retard_peinture": {
   "label": "Retard du fournisseur et rupture — Peinture en magasin de bricolage",
-  "context": "Vous travaillez dans un magasin de bricolage ouvert 24 jours par mois. Il se vend <b>1 200 pots de peinture blanche</b> sur un mois. Le délai de réapprovisionnement est de <b>6 jours ouvrés</b>. Le stock de sécurité correspond à <b>3 jours de ventes</b>. Chaque commande porte sur <b>600 pots</b>.",
-  "rappel": "<b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité. <b>Stock d'alerte</b> = (consommation journalière × délai de réapprovisionnement) + stock de sécurité. <b>Stock maximum</b> = stock minimum (= stock de sécurité) + quantité commandée.",
+  "context": "Vous travaillez dans un magasin de bricolage ouvert 24 jours par mois. Il se vend <b>1 200 pots de peinture blanche</b> sur un mois. Le délai de réapprovisionnement est de <b>6 jours ouvrés</b>. Le stock de sécurité correspond à <b>3 jours de ventes</b>. Le stock maximum doit couvrir <b>15 jours de ventes</b>.",
+  "rappel": "<b>Stock minimum</b> = consommation journalière × délai de réapprovisionnement (il couvre les ventes jusqu'à la livraison). <b>Stock de sécurité</b> = consommation journalière × nombre de jours de sécurité (il s'ajoute au stock minimum). <b>Stock d'alerte</b> = stock minimum + stock de sécurité. <b>Stock maximum</b> = consommation journalière × nombre de jours de ventes qu'il doit couvrir.",
   "questions": [
    {
     "type": "num",
@@ -223,6 +229,13 @@ const SITUATIONS = {
     "answer": 50,
     "tol": 0.5,
     "unit": "pots/jour"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock minimum.",
+    "answer": 300,
+    "tol": 0.5,
+    "unit": "pots"
    },
    {
     "type": "num",
@@ -255,12 +268,19 @@ const SITUATIONS = {
  },
  "stock_synthese_the": {
   "label": "Synthèse — Fiche de stock complète : sachets de tisane",
-  "context": "Vous devez compléter la fiche de gestion de stock d'une référence de tisane en sachets dans une épicerie fine. Données : ventes moyennes <b>18 boîtes par jour</b> ; délai de réapprovisionnement <b>10 jours</b> ; stock de sécurité = <b>5 jours</b> de ventes ; quantité commandée à chaque fois = <b>360 boîtes</b> ; le stock minimum est égal au stock de sécurité. Le stock actuel est de <b>300 boîtes</b>.",
+  "context": "Vous devez compléter la fiche de gestion de stock d'une référence de tisane en sachets dans une épicerie fine. Données : ventes moyennes <b>18 boîtes par jour</b> ; délai de réapprovisionnement <b>10 jours</b> ; stock de sécurité = <b>5 jours</b> de ventes ; le stock maximum doit couvrir <b>25 jours</b> de ventes. Le stock actuel est de <b>300 boîtes</b>.",
   "rappel": null,
   "questions": [
    {
     "type": "num",
-    "prompt": "Calculez le stock de sécurité (= stock minimum).",
+    "prompt": "Calculez le stock minimum.",
+    "answer": 180,
+    "tol": 0.5,
+    "unit": "boîtes"
+   },
+   {
+    "type": "num",
+    "prompt": "Calculez le stock de sécurité.",
     "answer": 90,
     "tol": 0.5,
     "unit": "boîtes"
@@ -280,18 +300,11 @@ const SITUATIONS = {
     "unit": "boîtes"
    },
    {
-    "type": "num",
-    "prompt": "Calculez le stock moyen.",
-    "answer": 270,
-    "tol": 0.5,
-    "unit": "boîtes"
-   },
-   {
     "type": "qcm",
     "prompt": "Le stock actuel est de 300 boîtes. Faut-il commander aujourd'hui ?",
     "choices": [
      "Non, il faut attendre la rupture",
-     "Oui, car 300 est supérieur au stock moyen",
+     "Oui, car 300 est inférieur au stock maximum",
      "Oui, car 300 est supérieur au stock de sécurité",
      "Non, mais la commande sera à passer dès que le stock descendra à 270 boîtes (dans environ 2 jours)"
     ],
@@ -299,8 +312,8 @@ const SITUATIONS = {
    },
    {
     "type": "open",
-    "prompt": "Rédigez une courte recommandation (2 à 3 phrases) à votre responsable pour le suivi de ce produit : quand commander, combien, et pourquoi garder un stock de sécurité.",
-    "expected": "Sur 2 pts : 1 pt quand et combien commander (à 270 boîtes, par 360) ; 1 pt rôle du stock de sécurité de 90 boîtes (absorber retards et pics de ventes).",
+    "prompt": "Rédigez une courte recommandation (2 à 3 phrases) à votre responsable pour le suivi de ce produit : quand commander et pourquoi garder un stock de sécurité.",
+    "expected": "Sur 2 pts : 1 pt quand commander (à 270 boîtes, le stock d'alerte) ; 1 pt rôle du stock de sécurité de 90 boîtes (absorber retards et pics de ventes).",
     "max": 2
    }
   ]
